@@ -258,72 +258,46 @@ tbody td:first-child{padding-left:0}
     for (var i = 0; i < line.length; i++) {
       var ch = line.charAt(i);
       if (ch === '"') { inQ = !inQ; }
-      else if (ch === ',' && !inQ) { cols.push(cur.trim().replace(/^"|"$/g, '')); cur = ''; }
+      else if (ch === ',' && !inQ) { cols.push(cur.replace(/^"+|"+$/g,'')); cur = ''; }
       else cur += ch;
     }
-    cols.push(cur.trim().replace(/^"|"$/g, ''));
+    cols.push(cur.replace(/^"+|"+$/g,''));
     return cols;
   }
 
-  function cellVal(s) {
-    // strip surrounding quotes Google Sheets sometimes adds
-    if (!s) return '';
-    s = s.trim();
-    if (s.charAt(0)==='"' && s.charAt(s.length-1)==='"') s = s.slice(1,-1);
-    return s.trim();
-  }
+  function clean(s) { return (s||'').trim().replace(/^"+|"+$/g,'').trim(); }
 
   function parseCSV(raw) {
     var lines = splitLines(raw.trim());
-
-    // Find header row - look for 'application type' in any cell of any row
     var hi = -1;
+
+    // Find header row by looking for 'application type' in any cell
     for (var i = 0; i < lines.length; i++) {
-      var cells = parseLine(lines[i]);
-      for (var c = 0; c < cells.length; c++) {
-        if (cellVal(cells[c]).toLowerCase().indexOf('application type') !== -1) {
-          hi = i; break;
-        }
+      if (lines[i].toLowerCase().indexOf('application type') !== -1) {
+        hi = i; break;
       }
-      if (hi !== -1) break;
     }
     if (hi === -1) return [];
 
-    var rawHeaders = parseLine(lines[hi]);
-    var headers = [];
-    for (var h = 0; h < rawHeaders.length; h++) headers.push(cellVal(rawHeaders[h]).toLowerCase());
-
-    function fi() {
-      for (var a = 0; a < arguments.length; a++) {
-        var key = arguments[a];
-        for (var j = 0; j < headers.length; j++) {
-          if (headers[j] === key || headers[j].replace(/ /g,'').indexOf(key.replace(/ /g,'')) === 0) return j;
-        }
-      }
-      return -1;
-    }
-
-    var ai=fi('application type'), ani=fi('application number'), si=fi('status'),
-        ni=fi('notes'), ci=fi('consents'), cci=fi('consent comments'),
-        pi=fi('registered plan'), di=fi('last updated');
-
+    // Use fixed column order: A=AppType, B=AppNum, C=Status, D=Notes, E=Consents, F=ConsentComments, G=PlanNum, H=LastUpdated
+    // (matches the sheet structure exactly as seen in screenshot)
     var rows = [];
     for (var r = hi + 1; r < lines.length; r++) {
       if (!lines[r].trim()) continue;
-      var cols = parseLine(lines[r]);
-      var appType = ai >= 0 && cols[ai] ? cellVal(cols[ai]) : '';
+      var c = parseLine(lines[r]);
+      var appType = clean(c[0]);
       if (!appType) continue;
       var lo = appType.toLowerCase();
       if (lo.indexOf('update cells') !== -1 || lo.indexOf('vista geomatics') !== -1) continue;
       rows.push({
-        appType: appType,
-        appNum:  ani >= 0 && cols[ani] ? cellVal(cols[ani]) : '',
-        status:  si  >= 0 && cols[si]  ? cellVal(cols[si])  : '',
-        notes:   ni  >= 0 && cols[ni]  ? cellVal(cols[ni])  : '',
-        consents: ci >= 0 && cols[ci]  ? cellVal(cols[ci])  : '',
-        consentComments: cci >= 0 && cols[cci] ? cellVal(cols[cci]) : '',
-        planNum: pi  >= 0 && cols[pi]  ? cellVal(cols[pi])  : '',
-        updated: di  >= 0 && cols[di]  ? cellVal(cols[di])  : ''
+        appType:         appType,
+        appNum:          clean(c[1]),
+        status:          clean(c[2]),
+        notes:           clean(c[3]),
+        consents:        clean(c[4]),
+        consentComments: clean(c[5]),
+        planNum:         clean(c[6]),
+        updated:         clean(c[7])
       });
     }
     return rows;
