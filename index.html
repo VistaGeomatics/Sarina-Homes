@@ -265,29 +265,34 @@ tbody td:first-child{padding-left:0}
     return cols;
   }
 
+  function cellVal(s) {
+    // strip surrounding quotes Google Sheets sometimes adds
+    if (!s) return '';
+    s = s.trim();
+    if (s.charAt(0)==='"' && s.charAt(s.length-1)==='"') s = s.slice(1,-1);
+    return s.trim();
+  }
+
   function parseCSV(raw) {
     var lines = splitLines(raw.trim());
     var hi = -1;
-    for (var i = 0; i < Math.min(lines.length, 8); i++) {
-      var cells = parseLine(lines[i]);
-      var hasApp = false, hasSt = false;
-      for (var c = 0; c < cells.length; c++) {
-        var cv = cells[c].toLowerCase().trim();
-        if (cv === 'application type' || cv === 'application type ') hasApp = true;
-        if (cv === 'status') hasSt = true;
+    // search all lines for the header row
+    for (var i = 0; i < lines.length; i++) {
+      var lower = lines[i].toLowerCase();
+      if (lower.indexOf('application type') !== -1 && lower.indexOf('status') !== -1) {
+        hi = i; break;
       }
-      if (hasApp && hasSt) { hi = i; break; }
     }
     if (hi === -1) return [];
 
     var headers = parseLine(lines[hi]);
-    for (var h = 0; h < headers.length; h++) headers[h] = headers[h].toLowerCase().trim();
+    for (var h = 0; h < headers.length; h++) headers[h] = cellVal(headers[h]).toLowerCase();
 
     function fi() {
       for (var a = 0; a < arguments.length; a++) {
         var key = arguments[a];
         for (var j = 0; j < headers.length; j++) {
-          if (headers[j] === key || headers[j] === key + ' ' || headers[j].indexOf(key) === 0) return j;
+          if (headers[j] === key || headers[j].indexOf(key) === 0) return j;
         }
       }
       return -1;
@@ -300,19 +305,19 @@ tbody td:first-child{padding-left:0}
     var rows = [];
     for (var r = hi + 1; r < lines.length; r++) {
       var cols = parseLine(lines[r]);
-      var appType = ai >= 0 ? (cols[ai] || '').trim() : '';
+      var appType = ai >= 0 ? cellVal(cols[ai]) : '';
       if (!appType) continue;
       var lo = appType.toLowerCase();
       if (lo.indexOf('update cells') !== -1 || lo.indexOf('vista geomatics') !== -1) continue;
       rows.push({
         appType: appType,
-        appNum:  ani >= 0 ? (cols[ani] || '').trim() : '',
-        status:  si  >= 0 ? (cols[si]  || '').trim() : '',
-        notes:   ni  >= 0 ? (cols[ni]  || '').trim() : '',
-        consents: ci >= 0 ? (cols[ci]  || '').trim() : '',
-        consentComments: cci >= 0 ? (cols[cci] || '').trim() : '',
-        planNum: pi  >= 0 ? (cols[pi]  || '').trim() : '',
-        updated: di  >= 0 ? (cols[di]  || '').trim() : ''
+        appNum:  ani >= 0 ? cellVal(cols[ani]) : '',
+        status:  si  >= 0 ? cellVal(cols[si])  : '',
+        notes:   ni  >= 0 ? cellVal(cols[ni])  : '',
+        consents: ci >= 0 ? cellVal(cols[ci])  : '',
+        consentComments: cci >= 0 ? cellVal(cols[cci]) : '',
+        planNum: pi  >= 0 ? cellVal(cols[pi])  : '',
+        updated: di  >= 0 ? cellVal(cols[di])  : ''
       });
     }
     return rows;
@@ -346,17 +351,16 @@ tbody td:first-child{padding-left:0}
     var tbody = '';
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      var appNumHtml  = !isBlank(r.appNum)  ? '<div class="app-num">'        + esc(r.appNum)          + '</div>' : '';
-      var notesHtml   = !isBlank(r.notes)   ? '<div class="note-text">'      + esc(r.notes)           + '</div>' : '<div class="note-na">No notes</div>';
-      var planHtml    = !isBlank(r.planNum) ? '<span class="plan-num">'      + esc(r.planNum)         + '</span>' : '<span class="note-na">&mdash;</span>';
+      var appNumHtml  = !isBlank(r.appNum)  ? '<div class="app-num">'   + esc(r.appNum)  + '</div>' : '';
+      var notesHtml   = !isBlank(r.notes)   ? '<div class="note-text">' + esc(r.notes)   + '</div>' : '<div class="note-na">No notes</div>';
+      var planHtml    = !isBlank(r.planNum) ? '<span class="plan-num">' + esc(r.planNum) + '</span>' : '<span class="note-na">&mdash;</span>';
       var ccHtml      = !isBlank(r.consentComments) ? '<div class="consent-comment">' + esc(r.consentComments) + '</div>' : '';
       var updatedHtml = !isBlank(r.updated) ? '<div class="updated-pill"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="5"/><path d="M6 3v3l2 1"/></svg>' + esc(r.updated) + '</div>' : '';
-
       tbody += '<tr>'
         + '<td style="width:18%"><div class="app-type">' + esc(r.appType) + '</div>' + appNumHtml + '</td>'
-        + '<td style="width:13%"><span class="badge ' + statusClass(r.status) + '">' + esc(r.status || '&mdash;') + '</span></td>'
+        + '<td style="width:13%"><span class="badge ' + statusClass(r.status) + '">' + esc(r.status||'&mdash;') + '</span></td>'
         + '<td style="width:23%">' + notesHtml + updatedHtml + '</td>'
-        + '<td style="width:18%"><span class="badge ' + consentClass(r.consents) + '">' + esc(r.consents || '&mdash;') + '</span>' + ccHtml + '</td>'
+        + '<td style="width:18%"><span class="badge ' + consentClass(r.consents) + '">' + esc(r.consents||'&mdash;') + '</span>' + ccHtml + '</td>'
         + '<td style="width:11%">' + planHtml + '</td>'
         + '<td style="width:17%"><button class="req-btn" onclick="window._openModal(' + i + ')"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l10 5-10 5V7l7-2-7-2V1z"/></svg> Request update</button></td>'
         + '</tr>';
@@ -376,12 +380,10 @@ tbody td:first-child{padding-left:0}
     var tabs = document.querySelectorAll('.nav-tab');
     for (var i=0; i<tabs.length; i++) tabs[i].classList.toggle('active', tabs[i].dataset.project===name);
     if (!force && cache[name]) { renderTable(cache[name], name); return; }
-
     document.getElementById('main-content').innerHTML =
       '<div class="loading"><div class="loading-spinner"></div>Loading ' + esc(name) + '&hellip;</div>';
     var ids = ['s-total','s-registered','s-endorsed','s-pending','s-pre','s-hold'];
     for (var s=0; s<ids.length; s++) document.getElementById(ids[s]).textContent = '\u2013';
-
     var url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(name);
     fetch(url)
       .then(function(res) {
@@ -414,7 +416,7 @@ tbody td:first-child{padding-left:0}
         var btn = document.createElement('button');
         btn.className = 'nav-tab' + (idx===0?' active':'');
         btn.dataset.project = name;
-        btn.innerHTML = esc(name) + ' <span class="tab-count">&mdash;</span>';
+        btn.innerHTML = 'Richmond Green <span class="tab-count">&mdash;</span>';
         btn.addEventListener('click', function(){ loadProject(name); });
         nav.appendChild(btn);
       })(PROJECTS[i], i);
