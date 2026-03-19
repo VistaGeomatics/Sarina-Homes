@@ -275,24 +275,29 @@ tbody td:first-child{padding-left:0}
 
   function parseCSV(raw) {
     var lines = splitLines(raw.trim());
+
+    // Find header row - look for 'application type' in any cell of any row
     var hi = -1;
-    // search all lines for the header row
     for (var i = 0; i < lines.length; i++) {
-      var lower = lines[i].toLowerCase();
-      if (lower.indexOf('application type') !== -1 && lower.indexOf('status') !== -1) {
-        hi = i; break;
+      var cells = parseLine(lines[i]);
+      for (var c = 0; c < cells.length; c++) {
+        if (cellVal(cells[c]).toLowerCase().indexOf('application type') !== -1) {
+          hi = i; break;
+        }
       }
+      if (hi !== -1) break;
     }
     if (hi === -1) return [];
 
-    var headers = parseLine(lines[hi]);
-    for (var h = 0; h < headers.length; h++) headers[h] = cellVal(headers[h]).toLowerCase();
+    var rawHeaders = parseLine(lines[hi]);
+    var headers = [];
+    for (var h = 0; h < rawHeaders.length; h++) headers.push(cellVal(rawHeaders[h]).toLowerCase());
 
     function fi() {
       for (var a = 0; a < arguments.length; a++) {
         var key = arguments[a];
         for (var j = 0; j < headers.length; j++) {
-          if (headers[j] === key || headers[j].indexOf(key) === 0) return j;
+          if (headers[j] === key || headers[j].replace(/ /g,'').indexOf(key.replace(/ /g,'')) === 0) return j;
         }
       }
       return -1;
@@ -304,20 +309,21 @@ tbody td:first-child{padding-left:0}
 
     var rows = [];
     for (var r = hi + 1; r < lines.length; r++) {
+      if (!lines[r].trim()) continue;
       var cols = parseLine(lines[r]);
-      var appType = ai >= 0 ? cellVal(cols[ai]) : '';
+      var appType = ai >= 0 && cols[ai] ? cellVal(cols[ai]) : '';
       if (!appType) continue;
       var lo = appType.toLowerCase();
       if (lo.indexOf('update cells') !== -1 || lo.indexOf('vista geomatics') !== -1) continue;
       rows.push({
         appType: appType,
-        appNum:  ani >= 0 ? cellVal(cols[ani]) : '',
-        status:  si  >= 0 ? cellVal(cols[si])  : '',
-        notes:   ni  >= 0 ? cellVal(cols[ni])  : '',
-        consents: ci >= 0 ? cellVal(cols[ci])  : '',
-        consentComments: cci >= 0 ? cellVal(cols[cci]) : '',
-        planNum: pi  >= 0 ? cellVal(cols[pi])  : '',
-        updated: di  >= 0 ? cellVal(cols[di])  : ''
+        appNum:  ani >= 0 && cols[ani] ? cellVal(cols[ani]) : '',
+        status:  si  >= 0 && cols[si]  ? cellVal(cols[si])  : '',
+        notes:   ni  >= 0 && cols[ni]  ? cellVal(cols[ni])  : '',
+        consents: ci >= 0 && cols[ci]  ? cellVal(cols[ci])  : '',
+        consentComments: cci >= 0 && cols[cci] ? cellVal(cols[cci]) : '',
+        planNum: pi  >= 0 && cols[pi]  ? cellVal(cols[pi])  : '',
+        updated: di  >= 0 && cols[di]  ? cellVal(cols[di])  : ''
       });
     }
     return rows;
